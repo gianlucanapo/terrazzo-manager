@@ -87,7 +87,7 @@ def local_css():
     a[href^="http"] button {
         background: white !important;
         color: #2563eb !important;
-        border: 2px solid #e2e8f0 !important;
+        border: 1px solid #e2e8f0 !important;
         box-shadow: none !important;
     }
     a[href^="http"] button:hover {
@@ -116,23 +116,121 @@ def local_css():
         padding-top: 1rem;
     }
 
-    /* CHAT */
-    .chat-row { display: flex; width: 100%; margin-bottom: 8px; }
-    .chat-row.right { justify-content: flex-end; }
-    .chat-row.left { justify-content: flex-start; }
-    .chat-bubble { padding: 8px 12px; border-radius: 16px; max-width: 80%; font-size: 0.9rem; }
-    .chat-bubble.me { background: #3b82f6; color: white; border-bottom-right-radius: 2px; }
-    .chat-bubble.other { background: #f1f5f9; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 2px; }
+    /* Titolo Sidebar */
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 {
+        font-size: 1.2rem;
+        margin-bottom: 0;
+    }
 
-    /* BADGES */
-    .role-badge {
-        display: inline-block;
-        padding: 2px 8px;
+    /* Menu di navigazione */
+    .stRadio > label { display: none; }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label > div:first-child { display: none; }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label {
+        padding: 10px 16px;
         border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        margin-left: 5px;
+        margin-bottom: 4px;
         border: 1px solid transparent;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
+        background-color: #f8fafc;
+        border-color: #e2e8f0;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label[data-checked="true"] {
+        background-color: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+    
+    /* ACCOUNT DROPDOWN STYLE (Expander) */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        border: none;
+        box-shadow: none;
+        background-color: transparent;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] details {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background-color: #fff;
+    }
+    
+    /* CHAT BUBBLES MODERNE */
+    .chat-row {
+        display: flex;
+        width: 100%;
+        margin-bottom: 12px;
+        align-items: flex-end;
+    }
+    .chat-row.right {
+        justify-content: flex-end;
+    }
+    .chat-row.left {
+        justify-content: flex-start;
+    }
+    
+    .chat-bubble {
+        padding: 12px 18px;
+        border-radius: 20px;
+        max-width: 85%;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        position: relative;
+    }
+    .chat-bubble.me {
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+    .chat-bubble.other {
+        background-color: #f1f5f9;
+        color: #1e293b;
+        border: 1px solid #e2e8f0;
+        border-bottom-left-radius: 4px;
+    }
+    .chat-user-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-left: 14px;
+        margin-bottom: 4px;
+        font-weight: 600;
+    }
+
+    /* COUNTDOWN & ALERT */
+    .countdown-text {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #64748b;
+        background: #f1f5f9;
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: inline-block;
+        margin-bottom: 0.8rem;
+    }
+    .countdown-urgent {
+        color: #ef4444;
+        background: #fee2e2;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        display: inline-block;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(0.98); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    
+    /* Box Meteo nella Sidebar */
+    [data-testid="stMetric"] {
+        background-color: #f8fafc;
+        padding: 15px;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
     }
     
     /* FAST TRACK UI */
@@ -341,13 +439,11 @@ def login_user(username, password):
 
 # --- LOGICA FAST TRACK (FLUSSO A) ---
 def get_next_available_slot():
-    """Trova il prossimo evento confermato non pieno"""
     conn = get_connection()
     slot = conn.execute("SELECT id, data, ora, tema FROM slots WHERE is_confirmed=1 ORDER BY data, ora LIMIT 1").fetchone()
     conn.close()
     
     if slot:
-        # Check posti
         conn = get_connection()
         taken = conn.execute("SELECT count(*) + sum(plus_one) FROM bookings WHERE slot_id=?", (slot[0],)).fetchone()[0] or 0
         conn.close()
@@ -356,17 +452,9 @@ def get_next_available_slot():
     return None
 
 def handle_fast_track():
-    """Gestisce il flusso da link /?action=fastjoin"""
     if "action" in st.query_params and st.query_params["action"] == "fastjoin":
-        st.markdown("""
-        <style>
-            [data-testid="stSidebar"] {display: none;} 
-            .block-container {max-width: 600px; padding-top: 2rem;}
-        </style>
-        """, unsafe_allow_html=True)
-
+        st.markdown("""<style>[data-testid="stSidebar"] {display: none;} .block-container {max-width: 600px; padding-top: 2rem;}</style>""", unsafe_allow_html=True)
         slot = get_next_available_slot()
-        
         st.markdown('<div class="fast-track-box">', unsafe_allow_html=True)
         st.markdown('<div class="fast-track-title">🚀 Fast Booking Terrazzo</div>', unsafe_allow_html=True)
         
@@ -381,7 +469,6 @@ def handle_fast_track():
         sid, s_d, s_o, s_t = slot
         st.info(f"Prossimo Evento:\n\n**{s_t}**\n\n📅 {s_d} ore {s_o}")
         
-        # --- LOGGATO ---
         if st.session_state.logged_in:
             if is_user_booked(sid, st.session_state.username):
                 st.success(f"✅ Sei già prenotato, {st.session_state.username}!")
@@ -412,8 +499,6 @@ def handle_fast_track():
             if st.button("Vai alla Home"):
                 st.query_params.clear()
                 st.rerun()
-
-        # --- NON LOGGATO ---
         else:
             st.write("Chi sei?")
             with st.form("fast_login_form"):
@@ -423,8 +508,7 @@ def handle_fast_track():
                         conn = get_connection()
                         exists = conn.execute("SELECT count(*) FROM users WHERE username=?", (name,)).fetchone()[0]
                         conn.close()
-                        if not exists:
-                            create_user(name, "terrazzo")
+                        if not exists: create_user(name, "terrazzo")
                         st.session_state.logged_in = True
                         st.session_state.username = name
                         st.rerun()
@@ -440,12 +524,10 @@ def main():
     local_css()
     cleanup_past_events()
     
-    # 1. INITIALIZE SESSION STATE FIRST
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
         st.session_state.username = None
 
-    # 2. THEN HANDLE FAST TRACK (which relies on session state)
     if handle_fast_track():
         return
 
@@ -603,21 +685,19 @@ def birthday_section():
         b_theme = st.text_input("Titolo Evento", value=f"Compleanno di {st.session_state.username}")
         b_desc = st.text_area("Dettagli", placeholder="Info utili...")
         
-        st.info("💰 Versa 2€ al fondo cassa per confermare.")
-        st.link_button("Invia 2€ (Revolut)", LINK_REVOLUT)
-        paid = st.checkbox("Ho inviato il contributo")
+        st.info("💰 Versa 5€ al fondo cassa per confermare.")
+        st.link_button("Invia 5€ (Revolut)", LINK_REVOLUT)
+        paid = st.checkbox("Ho inviato il contributo (L'Admin verificherà)", value=False, key="pay_check")
         
-        st.write("👥 **Prenota subito per amici:**")
-        guests = []
-        gc = st.columns(3)
-        for i in range(9):
-            with gc[i%3]:
-                gn = st.text_input(f"Ospite {i+1}", key=f"g_{i}")
-                if gn.strip(): guests.append(gn.strip())
+        st.write("---")
+        st.write("**👥 Quanti amici porti?**")
+        # SLIDER PER SELEZIONARE IL NUMERO DI OSPITI (Max 9 + 1)
+        guest_count = st.slider("Numero di ospiti (Escluso te)", min_value=0, max_value=9, value=0)
+        st.caption(f"Totale prenotazione: **{guest_count + 1}** persone (Tu + {guest_count} ospiti).")
         
         if st.form_submit_button("Invia Richiesta 🎉"):
             if not paid:
-                st.error("Conferma il pagamento!")
+                st.error("Devi confermare di aver inviato il contributo di 5€!")
             else:
                 try:
                     conn = get_connection()
@@ -625,16 +705,29 @@ def birthday_section():
                     cur.execute("INSERT INTO slots (data, ora, tema, creator, description, is_confirmed) VALUES (?, ?, ?, ?, ?, 0)", 
                                  (str(b_date), str(b_time), b_theme, st.session_state.username, b_desc))
                     sid = cur.lastrowid
+                    
+                    # 1. Prenota Festeggiato
                     cur.execute("INSERT INTO bookings (slot_id, nome_amico, note, plus_one, nome_plus_one, tieni_status) VALUES (?, ?, ?, ?, ?, ?)", 
                                     (sid, st.session_state.username, "Festeggiato 👑", 0, "", 1))
-                    for g in guests:
-                        cur.execute("INSERT INTO bookings (slot_id, nome_amico, note, plus_one, nome_plus_one, tieni_status) VALUES (?, ?, ?, ?, ?, ?)", 
-                                    (sid, g, "Invitato", 0, "", 1))
+                    
+                    # 2. Prenota Ospiti generici
+                    if guest_count > 0:
+                        for i in range(guest_count):
+                            g_name = f"Ospite {i+1} di {st.session_state.username}"
+                            cur.execute("INSERT INTO bookings (slot_id, nome_amico, note, plus_one, nome_plus_one, tieni_status) VALUES (?, ?, ?, ?, ?, ?)", 
+                                        (sid, g_name, "Invitato", 0, "", 1))
+                    
                     conn.commit()
                     conn.close()
                     st.success("Richiesta inviata! Attendi approvazione.")
-                except:
-                    st.error("Errore o data occupata.")
+                    st.info("Il tuo evento è in attesa. L'Admin confermerà la ricezione del pagamento.")
+                    time.sleep(3)
+                    st.rerun()
+                except sqlite3.IntegrityError:
+                    st.error("Esiste già un evento in questa data e ora!")
+                except Exception as e:
+                    st.error(f"Errore: {e}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def admin_section():
     st.title("Pannello Admin 🔒")
@@ -644,21 +737,19 @@ def admin_section():
         # TAB AGGIORNATI CON GESTIONE RUOLI E LINK
         tab_cassa, tab_ruoli, tab_crea, tab_gestione, tab_link = st.tabs(["💰 Cassa", "👥 Ruoli", "➕ Crea", "📅 Eventi", "🔗 Link"])
         
-        # --- TAB LINK RAPIDO (NUOVO) ---
+        # --- TAB LINK RAPIDO ---
         with tab_link:
             st.markdown('<div class="admin-section">', unsafe_allow_html=True)
             st.markdown('<div class="admin-section-title">Generatore Link WhatsApp</div>', unsafe_allow_html=True)
             st.info("Incolla qui il link di Ngrok (quello che finisce con .ngrok-free.app) per creare il link di auto-prenotazione.")
             base_url = st.text_input("Link Ngrok:", placeholder="https://....ngrok-free.app")
             if base_url:
-                # Rimuove slash finale se presente
                 if base_url.endswith("/"): base_url = base_url[:-1]
                 final_link = f"{base_url}/?action=fastjoin"
                 st.success("Copia questo link e mandalo agli amici:")
                 st.code(final_link, language="text")
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- TAB RUOLI ---
         with tab_ruoli:
             st.markdown('<div class="admin-section">', unsafe_allow_html=True)
             st.markdown('<div class="admin-section-title">Assegna Titoli e Ruoli</div>', unsafe_allow_html=True)
@@ -684,7 +775,6 @@ def admin_section():
             conn.close()
             for u, r in users_with_roles:
                 st.write(f"- **{u}**: {r}")
-                
             st.markdown('</div>', unsafe_allow_html=True)
             
         with tab_cassa:
@@ -770,7 +860,6 @@ def admin_section():
                 lbl = " (PENDING)" if s_conf==0 else ""
                 with st.expander(f"{s_d} {s_o} - {s_t} ({s_c}){lbl}"):
                     
-                    # --- LISTA PARTECIPANTI PER ADMIN ---
                     conn = get_connection()
                     parts = conn.execute("SELECT id, nome_amico, note, plus_one, nome_plus_one FROM bookings WHERE slot_id=?", (sid,)).fetchall()
                     conn.close()
@@ -793,15 +882,11 @@ def admin_section():
                         st.divider()
                     else:
                         st.caption("Nessuna prenotazione.")
-                    # ------------------------------------
                     
                     st.divider()
                     st.write("🛠️ **Gestione & Modifica**")
-                    
-                    # Form di modifica
                     with st.form(key=f"edit_event_{sid}"):
                         col_edit_1, col_edit_2 = st.columns(2)
-                        
                         try:
                             date_val = datetime.datetime.strptime(s_d, "%Y-%m-%d").date()
                             time_val = datetime.datetime.strptime(s_o, "%H:%M:%S").time()
