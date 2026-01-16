@@ -1036,7 +1036,7 @@ def main():
     if handle_fast_track():
         return
 
-    # Sidebar decorativa
+    # Sidebar decorativa + menu
     with st.sidebar:
         if st.session_state.logged_in:
             with st.expander("👤 Account", expanded=False):
@@ -1048,6 +1048,22 @@ def main():
                     st.rerun()
         else:
             st.info("Accedi per prenotare.")
+
+        st.divider()
+
+        # MENU: voci diverse se loggato / non loggato
+        if st.session_state.logged_in:
+            menu = st.radio(
+                "Navigazione",
+                ["🏠 Bacheca Eventi", "📅 I Miei Eventi", "🎂 Organizza Party", "🎰 Sala Giochi", "🔒 Area Admin"],
+                label_visibility="collapsed",
+            )
+        else:
+            menu = st.radio(
+                "Navigazione",
+                ["🔑 Accedi / Registrati", "🔒 Area Admin"],
+                label_visibility="collapsed",
+            )
 
         st.divider()
         temp_val, weather_desc = get_weather_napoli_live()
@@ -1069,21 +1085,24 @@ def main():
             st.link_button("Apri Mappa", VITO_MAP_URL)
             st.snow()
 
-    # Navigation pubblico vs privato
-    pages_public = [
-        st.Page(auth_section, title="🔑 Accedi / Registrati"),
-        st.Page(admin_section, title="🔒 Area Admin"),
-    ]
-    pages_private = [
-        st.Page(user_section, title="🏠 Bacheca Eventi"),
-        st.Page(my_bookings_section, title="📅 I Miei Eventi"),
-        st.Page(birthday_section, title="🎂 Organizza Party"),
-        st.Page(blackjack_page, title="🎰 Sala Giochi"),
-        st.Page(admin_section, title="🔒 Area Admin"),
-    ]
+    # ROUTING
+    if menu == "🔑 Accedi / Registrati":
+        auth_section()
+    elif menu == "🏠 Bacheca Eventi":
+        user_section()
+    elif menu == "📅 I Miei Eventi":
+        my_bookings_section()
+    elif menu == "🎂 Organizza Party":
+        birthday_section()
+    elif menu == "🎰 Sala Giochi":
+        # gate extra di sicurezza
+        if not st.session_state.logged_in:
+            st.error("Devi accedere.")
+            st.stop()
+        if blackjack_section is None:
+            st.error("blackjack_app.py non trovato o senza blackjack_section().")
+            st.stop()
+        blackjack_section()
+    elif menu == "🔒 Area Admin":
+        admin_section()
 
-    nav = st.navigation(pages_private if st.session_state.logged_in else pages_public)
-    nav.run()
-
-if __name__ == "__main__":
-    main()
